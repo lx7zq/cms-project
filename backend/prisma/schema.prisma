@@ -1,0 +1,472 @@
+// ============================================
+// CMS Schema: Landing Page & Blog Management
+// Backend: Bun + ElysiaJS + Prisma
+// Database: PostgreSQL
+// ============================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================
+// 1. AUTH / USER / ROLE / PERMISSION
+// ============================================
+
+model User {
+  id           String    @id @default(uuid())
+  email        String    @unique
+  passwordHash String
+  name         String
+  avatarUrl    String?
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  userRoles           UserRole[]
+  landingPages        LandingPage[]        @relation("LandingPageCreatedBy")
+  landingPagesUpdated LandingPage[]        @relation("LandingPageUpdatedBy")
+  blogPosts           BlogPost[]           @relation("BlogPostCreatedBy")
+  blogPostsUpdated    BlogPost[]           @relation("BlogPostUpdatedBy")
+  mediaFiles          MediaFile[]
+  fileAttachments     FileAttachment[]
+  activityLogs        ActivityLog[]
+  auditLogs           AuditLog[]
+  contentVersions     ContentVersion[]
+  passwordResets      PasswordResetToken[]
+  notifications       Notification[]
+
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique // Super Admin, Admin, Editor, Viewer
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  userRoles       UserRole[]
+  rolePermissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String  @id @default(uuid())
+  key         String  @unique // e.g. "landing_page.create", "blog.publish"
+  description String?
+
+  rolePermissions RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model UserRole {
+  userId String
+  roleId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role Role @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("password_reset_tokens")
+}
+
+// ============================================
+// 2. SHARED ENUMS
+// ============================================
+
+enum ContentStatus {
+  DRAFT
+  PRIVATE
+  PUBLIC
+  ARCHIVE
+  SCHEDULED_PUBLISH
+  SCHEDULED_UNPUBLISH
+  EXPIRED
+}
+
+enum ContentType {
+  LANDING_PAGE
+  BLOG_POST
+}
+
+enum PrivateAccessType {
+  ADMIN_ONLY
+  LOGGED_IN_ONLY
+  SPECIFIC_ROLE
+  SPECIFIC_ACCOUNT
+  PAGE_PASSWORD
+  PRIVATE_LINK
+}
+
+// ============================================
+// 3. LANDING PAGE
+// ============================================
+
+model LandingPage {
+  id                String             @id @default(uuid())
+  title             String
+  slug              String             @unique
+  shortDescription  String?
+  description       String?
+  banner            String?
+  thumbnail         String?
+  coverImage        String?
+  content           String             @db.Text
+  status            ContentStatus      @default(DRAFT)
+  isPublic          Boolean            @default(false)
+  publishDate       DateTime?
+  expireDate        DateTime?
+  privateAccessType PrivateAccessType?
+  pagePassword      String?
+  privateLinkToken  String?            @unique
+  viewCount         Int                @default(0)
+
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User  @relation("LandingPageCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("LandingPageUpdatedBy", fields: [updatedById], references: [id])
+
+  seo        SeoInfo?
+  categories ContentCategory[]
+  tags       ContentTag[]
+  versions   ContentVersion[]
+  pageViews  PageView[]
+
+  @@index([status])
+  @@index([slug])
+  @@map("landing_pages")
+}
+
+// ============================================
+// 4. BLOG POST
+// ============================================
+
+model BlogPost {
+  id          String        @id @default(uuid())
+  title       String
+  slug        String        @unique
+  excerpt     String?
+  description String?
+  thumbnail   String?
+  coverImage  String?
+  banner      String?
+  content     String        @db.Text
+  status      ContentStatus @default(DRAFT)
+  isPublic    Boolean       @default(false)
+  publishDate DateTime?
+  expireDate  DateTime?
+  readingTime Int? // minutes
+  isFeatured  Boolean       @default(false)
+  isPinned    Boolean       @default(false)
+  viewCount   Int           @default(0)
+
+  createdById String
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  createdBy User  @relation("BlogPostCreatedBy", fields: [createdById], references: [id])
+  updatedBy User? @relation("BlogPostUpdatedBy", fields: [updatedById], references: [id])
+
+  seo         SeoInfo?
+  categories  ContentCategory[]
+  tags        ContentTag[]
+  versions    ContentVersion[]
+  pageViews   PageView[]
+  relatedFrom BlogRelatedPost[] @relation("SourcePost")
+  relatedTo   BlogRelatedPost[] @relation("RelatedPost")
+
+  @@index([status])
+  @@index([slug])
+  @@map("blog_posts")
+}
+
+model BlogRelatedPost {
+  sourcePostId  String
+  relatedPostId String
+
+  sourcePost  BlogPost @relation("SourcePost", fields: [sourcePostId], references: [id], onDelete: Cascade)
+  relatedPost BlogPost @relation("RelatedPost", fields: [relatedPostId], references: [id], onDelete: Cascade)
+
+  @@id([sourcePostId, relatedPostId])
+  @@map("blog_related_posts")
+}
+
+// ============================================
+// 5. SEO (shared by LandingPage & BlogPost)
+// ============================================
+
+model SeoInfo {
+  id              String  @id @default(uuid())
+  metaTitle       String?
+  metaDescription String?
+  keyword         String?
+  ogTitle         String?
+  ogDescription   String?
+  ogImage         String?
+  canonicalUrl    String?
+  robotsIndex     Boolean @default(true)
+  robotsFollow    Boolean @default(true)
+
+  landingPageId String?      @unique
+  blogPostId    String?      @unique
+  landingPage   LandingPage? @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  blogPost      BlogPost?    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@map("seo_infos")
+}
+
+// ============================================
+// 6. CATEGORY / TAG (generic, ใช้ร่วมกันผ่าน join table + contentType)
+// ============================================
+
+model Category {
+  id          String      @id @default(uuid())
+  name        String
+  slug        String      @unique
+  contentType ContentType // แยก Category ของ Landing Page / Blog
+  parentId    String?
+  isActive    Boolean     @default(true)
+  sortOrder   Int         @default(0)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  parent   Category?  @relation("CategoryParent", fields: [parentId], references: [id])
+  children Category[] @relation("CategoryParent")
+
+  contentCategories ContentCategory[]
+
+  @@map("categories")
+}
+
+model Tag {
+  id        String   @id @default(uuid())
+  name      String
+  slug      String   @unique
+  createdAt DateTime @default(now())
+
+  contentTags ContentTag[]
+
+  @@map("tags")
+}
+
+model ContentCategory {
+  id            String  @id @default(uuid())
+  categoryId    String
+  landingPageId String?
+  blogPostId    String?
+
+  category    Category     @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  landingPage LandingPage? @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  blogPost    BlogPost?    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, landingPageId, blogPostId])
+  @@map("content_categories")
+}
+
+model ContentTag {
+  id            String  @id @default(uuid())
+  tagId         String
+  landingPageId String?
+  blogPostId    String?
+
+  tag         Tag          @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  landingPage LandingPage? @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  blogPost    BlogPost?    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@unique([tagId, landingPageId, blogPostId])
+  @@map("content_tags")
+}
+
+// ============================================
+// 7. MEDIA / FILE
+// ============================================
+
+model MediaFile {
+  id           String   @id @default(uuid())
+  fileName     String
+  url          String
+  fileType     String // PNG, JPG, SVG, WebP
+  fileSize     Int // bytes
+  width        Int?
+  height       Int?
+  altText      String?
+  caption      String?
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@map("media_files")
+}
+
+model FileAttachment {
+  id           String   @id @default(uuid())
+  fileName     String
+  url          String
+  fileType     String // PDF, DOCX, XLSX, ZIP
+  fileSize     Int
+  uploadedById String
+  createdAt    DateTime @default(now())
+
+  uploadedBy User @relation(fields: [uploadedById], references: [id])
+
+  @@map("file_attachments")
+}
+
+// ============================================
+// 8. VERSION HISTORY
+// ============================================
+
+model ContentVersion {
+  id            String      @id @default(uuid())
+  contentType   ContentType
+  landingPageId String?
+  blogPostId    String?
+  snapshot      Json // full content snapshot at this version
+  note          String?
+  editedById    String
+  createdAt     DateTime    @default(now())
+
+  landingPage LandingPage? @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  blogPost    BlogPost?    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+  editedBy    User         @relation(fields: [editedById], references: [id])
+
+  @@map("content_versions")
+}
+
+// ============================================
+// 9. ANALYTICS / PAGE VIEW
+// ============================================
+
+model PageView {
+  id            String      @id @default(uuid())
+  contentType   ContentType
+  landingPageId String?
+  blogPostId    String?
+  visitorId     String?
+  userId        String?
+  ipAddress     String?
+  sessionId     String?
+  referrerUrl   String?
+  trafficSource String?
+  deviceType    String?
+  browser       String?
+  os            String?
+  country       String?
+  timeOnPage    Int? // seconds
+  scrollDepth   Int? // percent
+  createdAt     DateTime    @default(now())
+
+  landingPage LandingPage? @relation(fields: [landingPageId], references: [id], onDelete: Cascade)
+  blogPost    BlogPost?    @relation(fields: [blogPostId], references: [id], onDelete: Cascade)
+
+  @@index([createdAt])
+  @@map("page_views")
+}
+
+// ============================================
+// 10. LOGS
+// ============================================
+
+model ActivityLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String // Login, Create, Edit, Delete, Publish, ...
+  targetType String? // LandingPage, BlogPost, User, ...
+  targetId   String?
+  detail     Json?
+  ipAddress  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("activity_logs")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String?
+  action    String
+  result    String // success / failed
+  ipAddress String?
+  detail    Json?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id])
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// 11. SETTINGS / NOTIFICATION / BACKUP
+// ============================================
+
+model WebsiteSetting {
+  id        String   @id @default(uuid())
+  key       String   @unique
+  value     Json
+  updatedAt DateTime @updatedAt
+
+  @@map("website_settings")
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  message   String
+  isRead    Boolean  @default(false)
+  channel   String // in_app, email, teams, line
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@map("notifications")
+}
+
+model BackupHistory {
+  id          String   @id @default(uuid())
+  type        String // database, images, files, configuration
+  status      String // success, failed
+  filePath    String?
+  triggeredBy String? // manual / scheduled
+  createdAt   DateTime @default(now())
+
+  @@map("backup_histories")
+}
