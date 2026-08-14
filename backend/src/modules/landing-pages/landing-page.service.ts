@@ -19,6 +19,9 @@ const pageInclude = {
   _count: { select: { pageViews: true, versions: true } },
 } as const;
 
+// เฉพาะรายการที่ยังไม่ถูก soft-delete เท่านั้น (ใช้ร่วมกับ where อื่นๆ)
+const notDeleted = { deletedAt: null } as const;
+
 function serializeLandingPage(page: any) {
   return {
     id: page.id,
@@ -40,6 +43,7 @@ function serializeLandingPage(page: any) {
     viewCount: page.viewCount,
     createdAt: page.createdAt,
     updatedAt: page.updatedAt,
+    deletedAt: page.deletedAt ?? null,
     createdBy: page.createdBy,
     updatedBy: page.updatedBy,
     seo: page.seo,
@@ -82,6 +86,19 @@ async function ensureUniqueSlug(title: string, excludeId?: string) {
   }
 }
 
+/**
+ * เลือกค่าที่จะเซฟลง DB โดยแยกกรณีให้ถูกต้อง:
+ * - field ไม่ถูกส่งมาเลย (undefined)  -> ใช้ค่าเดิม (ไม่แก้ไข)
+ * - field ถูกส่งมาเป็น null ตรงๆ      -> เคลียร์ค่าเป็น null จริง (ผู้ใช้ตั้งใจลบ เช่น ลบรูป banner)
+ * - field ถูกส่งมาเป็นค่าใหม่          -> ใช้ค่าใหม่
+ *
+ * ต่างจากการใช้ `input.x ?? page.x` ตรงที่ `??` จะ fallback กลับไปใช้ค่าเดิม
+ * ทั้งกรณี undefined และ null ทำให้ผู้ใช้ไม่สามารถ "เคลียร์ค่าว่าง" ได้เลย
+ */
+function pickField<T>(input: T | null | undefined, current: T) {
+  return input === undefined ? current : input;
+}
+
 export const landingPageService = {
   async list(params: {
     search?: string;
@@ -92,7 +109,7 @@ export const landingPageService = {
     const page = params.page ?? 1;
     const pageSize = params.pageSize ?? 20;
 
-    const where: any = {};
+    const where: any = { ...notDeleted };
     if (params.status) {
       where.status = params.status;
     }
@@ -127,8 +144,8 @@ export const landingPageService = {
   },
 
   async getById(id: string) {
-    const page = await prisma.landingPage.findUnique({
-      where: { id },
+    const page = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
       include: pageInclude,
     });
 
@@ -245,11 +262,11 @@ export const landingPageService = {
     input: {
       title?: string;
       content?: string;
-      shortDescription?: string;
-      description?: string;
-      banner?: string;
-      thumbnail?: string;
-      coverImage?: string;
+      shortDescription?: string | null;
+      description?: string | null;
+      banner?: string | null;
+      thumbnail?: string | null;
+      coverImage?: string | null;
       status?: string;
       isPublic?: boolean;
       publishDate?: string | Date | null;
@@ -273,8 +290,8 @@ export const landingPageService = {
       userId: string;
     },
   ) {
-    const page = await prisma.landingPage.findUnique({
-      where: { id },
+    const page = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
       include: { seo: true },
     });
 
@@ -283,30 +300,52 @@ export const landingPageService = {
     const title = input.title?.trim() ?? page.title;
     const slug = input.title ? await ensureUniqueSlug(title, id) : page.slug;
 
+    // แปลง publishDate/expireDate แยกจาก pickField เพราะต้อง cast เป็น Date ก่อน
+    const publishDate =
+      input.publishDate === undefined
+        ? page.publishDate
+        : input.publishDate
+          ? new Date(input.publishDate)
+          : null;
+    const expireDate =
+      input.expireDate === undefined
+        ? page.expireDate
+        : input.expireDate
+          ? new Date(input.expireDate)
+          : null;
+
     const next = await prisma.$transaction(async (tx) => {
       const updated = await tx.landingPage.update({
         where: { id },
         data: {
           title,
           slug,
-          shortDescription: input.shortDescription ?? page.shortDescription,
-          description: input.description ?? page.description,
-          banner: input.banner ?? page.banner,
-          thumbnail: input.thumbnail ?? page.thumbnail,
-          coverImage: input.coverImage ?? page.coverImage,
-          content: input.content ?? page.content,
+          // ใช้ pickField แทน `??` เพื่อให้ส่ง null มาเคลียร์ค่าได้จริง
+          shortDescription: pickField(
+            input.shortDescription,
+            page.shortDescription,
+          ),
+          description: pickField(input.description, page.description),
+          banner: pickField(input.banner, page.banner),
+          thumbnail: pickField(input.thumbnail, page.thumbnail),
+          coverImage: pickField(input.coverImage, page.coverImage),
+          content: pickField(input.content, page.content) as string,
           status: input.status ? (input.status as any) : page.status,
-          isPublic: input.isPublic ?? page.isPublic,
-          publishDate: input.publishDate
-            ? new Date(input.publishDate)
-            : page.publishDate,
-          expireDate: input.expireDate
-            ? new Date(input.expireDate)
-            : page.expireDate,
-          privateAccessType: ((input.privateAccessType as any) ??
-            page.privateAccessType) as any,
-          pagePassword: input.pagePassword ?? page.pagePassword,
-          privateLinkToken: input.privateLinkToken ?? page.privateLinkToken,
+          isPublic: pickField(
+            input.isPublic,
+            page.isPublic,
+          ) as unknown as boolean,
+          publishDate,
+          expireDate,
+          privateAccessType: pickField(
+            input.privateAccessType as any,
+            page.privateAccessType,
+          ),
+          pagePassword: pickField(input.pagePassword, page.pagePassword),
+          privateLinkToken: pickField(
+            input.privateLinkToken,
+            page.privateLinkToken,
+          ),
           updatedById: input.userId,
           seo: input.seo
             ? {
@@ -323,6 +362,8 @@ export const landingPageService = {
                     robotsFollow: input.seo.robotsFollow ?? true,
                   },
                   update: {
+                    // ตรงนี้คง `??` ไว้ตั้งใจ เพราะ update ของ seo (nested write)
+                    // ไม่รองรับ pickField ตรงๆ - ถ้าต้องเคลียร์ SEO field ให้ส่ง "" แทน null
                     metaTitle: input.seo.metaTitle ?? undefined,
                     metaDescription: input.seo.metaDescription ?? undefined,
                     keyword: input.seo.keyword ?? undefined,
@@ -393,8 +434,8 @@ export const landingPageService = {
   },
 
   async duplicate(id: string, userId: string) {
-    const source = await prisma.landingPage.findUnique({
-      where: { id },
+    const source = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
       include: {
         seo: true,
         categories: { include: { category: true } },
@@ -462,7 +503,9 @@ export const landingPageService = {
   },
 
   async setStatus(id: string, status: string, userId: string) {
-    const page = await prisma.landingPage.findUnique({ where: { id } });
+    const page = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
+    });
     if (!page) throw new LandingPageError("ไม่พบ Landing Page นี้", 404);
 
     const updated = await prisma.landingPage.update({
@@ -478,7 +521,9 @@ export const landingPageService = {
   },
 
   async togglePublic(id: string, isPublic: boolean, userId: string) {
-    const page = await prisma.landingPage.findUnique({ where: { id } });
+    const page = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
+    });
     if (!page) throw new LandingPageError("ไม่พบ Landing Page นี้", 404);
 
     const updated = await prisma.landingPage.update({
@@ -494,11 +539,47 @@ export const landingPageService = {
     return serializeLandingPage(updated);
   },
 
-  async delete(id: string) {
-    const page = await prisma.landingPage.findUnique({ where: { id } });
+  /**
+   * Soft delete แทน hard delete
+   * เดิม: prisma.landingPage.delete() ลบแถวจริง -> ลาก pageViews/versions หายตาม (onDelete: Cascade)
+   * ทำให้ analytics และประวัติการแก้ไขของหน้านั้นหายไปถาวร ตรวจสอบย้อนหลังไม่ได้
+   *
+   * ใหม่: set deletedAt + เอาออกจากสถานะ public ทันที
+   * - list()/getById()/duplicate()/setStatus()/togglePublic() กรอง deletedAt: null ออกให้หมดแล้ว
+   * - ข้อมูล analytics/version history ยังอยู่ครบ เผื่อกู้คืนหรือดูย้อนหลัง
+   */
+  async delete(id: string, userId: string) {
+    const page = await prisma.landingPage.findFirst({
+      where: { id, ...notDeleted },
+    });
     if (!page) throw new LandingPageError("ไม่พบ Landing Page นี้", 404);
 
-    await prisma.landingPage.delete({ where: { id } });
+    await prisma.landingPage.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(),
+        isPublic: false,
+        status: "ARCHIVE",
+        updatedById: userId,
+      },
+    });
+
     return { message: "ลบ Landing Page สำเร็จ" };
+  },
+
+  /** กู้คืนหน้าที่ถูก soft-delete ไปแล้ว (เผื่อ Admin ลบผิด) */
+  async restore(id: string, userId: string) {
+    const page = await prisma.landingPage.findUnique({ where: { id } });
+    if (!page || !page.deletedAt) {
+      throw new LandingPageError("ไม่พบ Landing Page ที่ถูกลบนี้", 404);
+    }
+
+    const restored = await prisma.landingPage.update({
+      where: { id },
+      data: { deletedAt: null, status: "DRAFT", updatedById: userId },
+      include: pageInclude,
+    });
+
+    return serializeLandingPage(restored);
   },
 };
