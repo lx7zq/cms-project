@@ -11,6 +11,7 @@ import {
   landingPageController,
 } from './modules/landing-pages/landing-page.controller';
 import { roleController } from './modules/roles/role.controller';
+import { tagController } from './modules/tags/tag.controller';
 import { userController } from './modules/users/user.controller';
 
 const app = new Elysia()
@@ -28,6 +29,7 @@ const app = new Elysia()
           { name: "Landing Pages", description: "Landing page CRUD and workflow" },
           { name: "Blog Posts", description: "Blog post CRUD and workflow" },
           { name: "Categories", description: "Category management" },
+          { name: "Tags", description: "Tag management" },
         ],
       },
     }),
@@ -38,6 +40,7 @@ const app = new Elysia()
   .use(landingPageController)
   .use(blogPostController)
   .use(categoryController)
+  .use(tagController)
   .get("/health", () => ({ status: "ok" }))
   .listen(process.env.PORT ?? 3000);
 
