@@ -136,21 +136,25 @@ export const landingPageController = new Elysia({ prefix: "/landing-pages" })
     },
     {
       params: t.Object({ id: t.String() }),
+      // หมายเหตุ: field ที่อยากให้เคลียร์ค่าเป็น null ได้ (banner, thumbnail, coverImage,
+      // shortDescription, description, privateAccessType, pagePassword, privateLinkToken)
+      // ใช้ t.Optional(t.Nullable(t.String())) แทน t.Optional(t.String()) เฉยๆ
+      // เพื่อให้ client ส่ง null มาจริงได้ ตรงกับ pickField() ฝั่ง service ที่แก้ไว้
       body: t.Object({
         title: t.Optional(t.String({ minLength: 1 })),
         content: t.Optional(t.String()),
-        shortDescription: t.Optional(t.String()),
-        description: t.Optional(t.String()),
-        banner: t.Optional(t.String()),
-        thumbnail: t.Optional(t.String()),
-        coverImage: t.Optional(t.String()),
+        shortDescription: t.Optional(t.Nullable(t.String())),
+        description: t.Optional(t.Nullable(t.String())),
+        banner: t.Optional(t.Nullable(t.String())),
+        thumbnail: t.Optional(t.Nullable(t.String())),
+        coverImage: t.Optional(t.Nullable(t.String())),
         status: t.Optional(t.String()),
         isPublic: t.Optional(t.Boolean()),
-        publishDate: t.Optional(t.String()),
-        expireDate: t.Optional(t.String()),
-        privateAccessType: t.Optional(t.String()),
-        pagePassword: t.Optional(t.String()),
-        privateLinkToken: t.Optional(t.String()),
+        publishDate: t.Optional(t.Nullable(t.String())),
+        expireDate: t.Optional(t.Nullable(t.String())),
+        privateAccessType: t.Optional(t.Nullable(t.String())),
+        pagePassword: t.Optional(t.Nullable(t.String())),
+        privateLinkToken: t.Optional(t.Nullable(t.String())),
         seo: t.Optional(
           t.Object({
             metaTitle: t.Optional(t.String()),
@@ -285,6 +289,9 @@ export const landingPageController = new Elysia({ prefix: "/landing-pages" })
     },
   )
 
+  // ---------- DELETE ----------
+  // แก้จากเดิม: เดิมเรียก landingPageService.delete(params.id) เฉยๆ (hard delete ไม่เก็บว่าใครลบ)
+  // ใหม่: ส่ง user!.id เข้าไปด้วย เพราะ service เปลี่ยนเป็น soft delete และบันทึก updatedById ไว้
   .delete(
     "/:id",
     async ({ params, user, set }) => {
@@ -296,7 +303,29 @@ export const landingPageController = new Elysia({ prefix: "/landing-pages" })
       if (permissionError) return permissionError;
 
       try {
-        return await landingPageService.delete(params.id);
+        return await landingPageService.delete(params.id, user!.id);
+      } catch (err) {
+        return handleError(err, set);
+      }
+    },
+    {
+      params: t.Object({ id: t.String() }),
+    },
+  )
+
+  // ---------- RESTORE (ใหม่: กู้คืนหน้าที่ถูก soft-delete ไปแล้ว) ----------
+  .patch(
+    "/:id/restore",
+    async ({ params, user, set }) => {
+      const permissionError = assertPermission(
+        user,
+        set,
+        "landing_page.delete",
+      );
+      if (permissionError) return permissionError;
+
+      try {
+        return await landingPageService.restore(params.id, user!.id);
       } catch (err) {
         return handleError(err, set);
       }

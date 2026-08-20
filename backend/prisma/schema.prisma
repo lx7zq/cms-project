@@ -152,6 +152,7 @@ model LandingPage {
   pagePassword      String?
   privateLinkToken  String?            @unique
   viewCount         Int                @default(0)
+  deletedAt         DateTime?
 
   createdById String
   updatedById String?
@@ -169,6 +170,7 @@ model LandingPage {
 
   @@index([status])
   @@index([slug])
+  @@index([deletedAt])
   @@map("landing_pages")
 }
 
@@ -194,6 +196,7 @@ model BlogPost {
   isFeatured  Boolean       @default(false)
   isPinned    Boolean       @default(false)
   viewCount   Int           @default(0)
+  deletedAt   DateTime?
 
   createdById String
   updatedById String?
@@ -213,6 +216,7 @@ model BlogPost {
 
   @@index([status])
   @@index([slug])
+  @@index([deletedAt])
   @@map("blog_posts")
 }
 
