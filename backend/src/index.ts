@@ -4,6 +4,7 @@ import { cors } from '@elysiajs/cors';
 import { swagger } from '@elysiajs/swagger';
 
 import { authController } from './modules/auth/auth.controller';
+import { blogPostController } from './modules/blog-posts/blog-post.controller';
 import {
   landingPageController,
 } from './modules/landing-pages/landing-page.controller';
@@ -21,10 +22,8 @@ const app = new Elysia()
           { name: "Auth", description: "Login, logout, password management" },
           { name: "Users", description: "User management" },
           { name: "Roles", description: "Roles and permissions" },
-          {
-            name: "Landing Pages",
-            description: "Landing page CRUD and workflow",
-          },
+          { name: "Landing Pages", description: "Landing page CRUD and workflow" },
+          { name: "Blog Posts", description: "Blog post CRUD and workflow" },
         ],
       },
     }),
@@ -33,6 +32,7 @@ const app = new Elysia()
   .use(userController)
   .use(roleController)
   .use(landingPageController)
+  .use(blogPostController)
   .get("/health", () => ({ status: "ok" }))
   .listen(process.env.PORT ?? 3000);
 
