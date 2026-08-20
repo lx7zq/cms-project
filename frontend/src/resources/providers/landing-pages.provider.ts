@@ -11,6 +11,7 @@ export interface ILandingPagesProvider {
   unpublish(id: string): Promise<any>
   archive(id: string): Promise<any>
   restore(id: string): Promise<any>
+  togglePublic(id: string, isPublic: boolean): Promise<any>
 }
 
 class LandingPagesProvider extends HttpRequest implements ILandingPagesProvider {
@@ -33,7 +34,7 @@ class LandingPagesProvider extends HttpRequest implements ILandingPagesProvider 
   }
 
   public async delete(id: string): Promise<any> {
-    return this.delete(`${this.urlPrefix}/${id}`)
+    return super.delete(`${this.urlPrefix}/${id}`)
   }
 
   public async duplicate(id: string): Promise<any> {
@@ -54,6 +55,10 @@ class LandingPagesProvider extends HttpRequest implements ILandingPagesProvider 
 
   public async restore(id: string): Promise<any> {
     return this.patch(`${this.urlPrefix}/${id}/restore`, {})
+  }
+
+  public async togglePublic(id: string, isPublic: boolean): Promise<any> {
+    return this.patch(`${this.urlPrefix}/${id}/public-toggle`, { isPublic })
   }
 }
 

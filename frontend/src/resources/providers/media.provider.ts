@@ -35,7 +35,7 @@ class MediaProvider extends HttpRequest implements IMediaProvider {
   }
 
   public async delete(id: string): Promise<any> {
-    return this.delete(`${this.urlPrefix}/${id}`)
+    return super.delete(`${this.urlPrefix}/${id}`)
   }
 }
 

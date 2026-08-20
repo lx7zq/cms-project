@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { useAuthStore } from '@/stores'
+import { onMounted } from 'vue'
+import { useAuthStore, useDashboardStore } from '@/stores'
 import {
   DocumentTextIcon,
   UsersIcon,
@@ -9,13 +9,18 @@ import {
 } from '@heroicons/vue/24/outline'
 
 const auth = useAuthStore()
+const dashboard = useDashboardStore()
 
-const stats = ref([
-  { name: 'Landing Pages', value: '—', icon: DocumentTextIcon, color: 'bg-indigo-50 text-indigo-600' },
-  { name: 'Users', value: '—', icon: UsersIcon, color: 'bg-green-50 text-green-600' },
-  { name: 'Page Views', value: '—', icon: EyeIcon, color: 'bg-amber-50 text-amber-600' },
-  { name: 'Categories', value: '—', icon: FolderIcon, color: 'bg-rose-50 text-rose-600' },
-])
+const statCards = [
+  { key: 'landingPages' as const, name: 'Landing Pages', icon: DocumentTextIcon, color: 'bg-indigo-50 text-indigo-600' },
+  { key: 'users' as const, name: 'Users', icon: UsersIcon, color: 'bg-green-50 text-green-600' },
+  { key: 'pageViews' as const, name: 'Page Views', icon: EyeIcon, color: 'bg-amber-50 text-amber-600' },
+  { key: 'categories' as const, name: 'Categories', icon: FolderIcon, color: 'bg-rose-50 text-rose-600' },
+]
+
+onMounted(() => {
+  dashboard.fetchStats()
+})
 </script>
 
 <template>
@@ -27,14 +32,14 @@ const stats = ref([
 
     <!-- Stats -->
     <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div v-for="stat in stats" :key="stat.name" class="bg-white rounded-xl border border-gray-200 p-5">
+      <div v-for="stat in statCards" :key="stat.key" class="bg-white rounded-xl border border-gray-200 p-5">
         <div class="flex items-center gap-4">
           <div :class="['p-3 rounded-lg', stat.color]">
             <component :is="stat.icon" class="w-6 h-6" />
           </div>
           <div>
             <p class="text-sm text-gray-500">{{ stat.name }}</p>
-            <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
+            <p class="text-2xl font-bold text-gray-900">{{ dashboard.stats[stat.key] }}</p>
           </div>
         </div>
       </div>
