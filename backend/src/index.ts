@@ -10,6 +10,7 @@ import { categoryController } from './modules/categories/category.controller';
 import {
   landingPageController,
 } from './modules/landing-pages/landing-page.controller';
+import { mediaController } from './modules/media/media.controller';
 import { roleController } from './modules/roles/role.controller';
 import { tagController } from './modules/tags/tag.controller';
 import { userController } from './modules/users/user.controller';
@@ -30,6 +31,7 @@ const app = new Elysia()
           { name: "Blog Posts", description: "Blog post CRUD and workflow" },
           { name: "Categories", description: "Category management" },
           { name: "Tags", description: "Tag management" },
+          { name: "Media", description: "Media and file upload" },
         ],
       },
     }),
@@ -41,6 +43,7 @@ const app = new Elysia()
   .use(blogPostController)
   .use(categoryController)
   .use(tagController)
+  .use(mediaController)
   .get("/health", () => ({ status: "ok" }))
   .listen(process.env.PORT ?? 3000);
 
