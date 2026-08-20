@@ -196,6 +196,7 @@ model BlogPost {
   isFeatured  Boolean       @default(false)
   isPinned    Boolean       @default(false)
   viewCount   Int           @default(0)
+  deletedAt   DateTime?
 
   createdById String
   updatedById String?
@@ -215,6 +216,7 @@ model BlogPost {
 
   @@index([status])
   @@index([slug])
+  @@index([deletedAt])
   @@map("blog_posts")
 }
 
