@@ -29,7 +29,7 @@ class RolesProvider extends HttpRequest implements IRolesProvider {
   }
 
   public async delete(id: string): Promise<any> {
-    return this.delete(`${this.urlPrefix}/${id}`)
+    return super.delete(`${this.urlPrefix}/${id}`)
   }
 
   public async getPermissions(): Promise<any> {

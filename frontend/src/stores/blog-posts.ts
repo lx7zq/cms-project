@@ -69,6 +69,11 @@ export const useBlogPostsStore = defineStore('blogPosts', () => {
     await fetchPosts()
   }
 
+  async function restorePost(id: string) {
+    await blogPostsProvider.restore(id)
+    await fetchPosts()
+  }
+
   function setPage(p: number) {
     page.value = p
     fetchPosts()
@@ -89,7 +94,7 @@ export const useBlogPostsStore = defineStore('blogPosts', () => {
   return {
     posts, total, page, pageSize, loading, search, statusFilter,
     fetchPosts, getPost, createPost, updatePost, duplicatePost,
-    publishPost, unpublishPost, archivePost, deletePost,
+    publishPost, unpublishPost, archivePost, deletePost, restorePost,
     setPage, setSearch, setStatusFilter,
   }
 })

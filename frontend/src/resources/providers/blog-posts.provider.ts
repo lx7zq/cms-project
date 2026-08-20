@@ -33,7 +33,7 @@ class BlogPostsProvider extends HttpRequest implements IBlogPostsProvider {
   }
 
   public async delete(id: string): Promise<any> {
-    return this.delete(`${this.urlPrefix}/${id}`)
+    return super.delete(`${this.urlPrefix}/${id}`)
   }
 
   public async duplicate(id: string): Promise<any> {
