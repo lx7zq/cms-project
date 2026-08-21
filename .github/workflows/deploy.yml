@@ -32,11 +32,31 @@ jobs:
         working-directory: backend
         run: bunx prisma generate
 
-      - name: Run migrations
+      - name: Run migrations (CI)
         working-directory: backend
         run: bunx prisma migrate deploy
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+
+      - name: Setup backend .env on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ${{ vars.BACKEND_PATH || '/var/www/cms-project/backend' }}
+            cat > .env << 'ENVEOF'
+            DATABASE_URL=${{ secrets.DATABASE_URL }}
+            JWT_SECRET=${{ secrets.JWT_SECRET }}
+            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
+            SEED_SUPER_ADMIN_EMAIL=${{ secrets.SEED_SUPER_ADMIN_EMAIL }}
+            SEED_SUPER_ADMIN_PASSWORD=${{ secrets.SEED_SUPER_ADMIN_PASSWORD }}
+            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+            SUPABASE_SECRET_KEY=${{ secrets.SUPABASE_SECRET_KEY }}
+            SUPABASE_JWKS_URL=${{ secrets.SUPABASE_JWKS_URL }}
+            ENVEOF
 
       - name: Deploy backend via SSH
         uses: appleboy/ssh-action@v1
@@ -49,7 +69,6 @@ jobs:
             git pull origin main
             bun install --frozen-lockfile
             bunx prisma generate
-            bunx prisma migrate deploy
             pm2 restart cms-backend || pm2 start "bun run start" --name cms-backend
 
   # ── Frontend ──
@@ -75,6 +94,8 @@ jobs:
         run: npm run build
         env:
           VITE_APP_API_URL: ${{ secrets.API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Deploy frontend via SSH
         uses: appleboy/ssh-action@v1

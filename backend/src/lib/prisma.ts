@@ -9,9 +9,10 @@ import { PrismaClient } from '../../generated/prisma/client';
 // เพื่อป้องกัน deprecationWarning: Calling client.query() when client is already executing a query
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,              // จำนวน connection สูงสุดใน pool
-  idleTimeoutMillis: 30000,   // ปิด connection ที่ idle เกิน 30 วินาที
-  connectionTimeoutMillis: 5000, // timeout ถ้า connect ไม่ได้ภายใน 5 วินาที
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 5000,
+  ssl: { rejectUnauthorized: false },
 });
 
 const adapter = new PrismaPg(pool);

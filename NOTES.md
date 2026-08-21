@@ -1,7 +1,7 @@
 # CMS Project - Notes
 
 > ไฟล์นี้เก็บ context สำคัญของโปรเจค เพื่อให้ AI agent รู้สถานะล่าสุดเมื่อเริ่ม session ใหม่
-> อัพเดทล่าสุด: 2026-08-21
+> อัพเดทล่าสุด: 2026-08-21 (session 2: Supabase config + Prisma generate)
 
 ---
 
@@ -33,10 +33,11 @@ cms-project/
 
 - **Provider**: Supabase (PostgreSQL)
 - **Project ID**: `yffuvlywkieimaowjbil`
-- **Host**: `db.yffuvlywkieimaowjbil.supabase.co`
-- **Port**: 5432
-- **DATABASE_URL format**: `postgresql://postgres:PASSWORD@db.yffuvlywkieimaowjbil.supabase.co:5432/postgres`
-- **⚠️ ยังไม่ได้รัน Prisma migration** — ต้อง migrate ก่อนใช้งาน
+- **Connection**: Supabase Pooler (session mode, port 5432)
+- **DATABASE_URL**: `postgresql://postgres.yffuvlywkieimaowjbil:***@aws-0-ap-southeast-1.pooler.supabase.com:5432/postgres?sslmode=no-verify`
+- **SSL**: `sslmode=no-verify` (Supabase uses self-signed cert)
+- **✅ Prisma migration แล้ว** (2026-08-21)
+- **✅ Seed แล้ว** — 4 Roles, 21 Permissions, Super Admin user
 
 ## 🚀 API Endpoints (Backend)
 
@@ -122,12 +123,21 @@ cms-project/
 
 ## ⚠️ TODO / ยังไม่ได้ทำ
 
-1. **รัน Prisma migration** — ต้อง migrate schema ลง Supabase database
+1. **✅ รัน Prisma migration + Seed เรียบร้อย** — Schema + Roles/Permissions/Admin ลง Supabase แล้ว
 2. **ตั้งค่า GitHub Secrets** — สำหรับ deployment
 3. **สร้าง server/backend hosting** — Railway หรือ VPS
 4. **ตั้งค่า Vercel** — สำหรับ frontend
 5. **Page Views API** — ยังไม่มี endpoint แยก (hardcoded เป็น 0)
 6. **Email service** — Forgot password ยัง mock อยู่ (return token ตรงๆ)
+
+## 🔐 Supabase Configuration
+
+- **Project ID**: `yffuvlywkieimaowjbil`
+- **Supabase URL**: `https://yffuvlywkieimaowjbil.supabase.co`
+- **Database Host**: `db.yffuvlywkieimaowjbil.supabase.co:5432`
+- **JWKS URL**: `https://yffuvlywkieimaowjbil.supabase.co/auth/v1/.well-known/jwks.json`
+- **backend/.env**: ✅ อัพเดทแล้ว (DATABASE_URL, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, SUPABASE_SECRET_KEY, SUPABASE_JWKS_URL)
+- **frontend/.env**: ✅ สร้างแล้ว (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
 
 ## 💡 Architecture Notes
 
@@ -146,3 +156,5 @@ cms-project/
 - Uses `@prisma/adapter-pg` with connection pool (not single connection)
 - Generated client: `backend/generated/prisma/`
 - Schema: `backend/prisma/schema.prisma`
+- Config: `backend/prisma.config.ts` (Prisma 7 — url/directUrl moved here from schema)
+- **Migration note**: ต้องใช้ port 5432 (session mode) ไม่ใช่ port 6543 (pgbouncer transaction mode)
