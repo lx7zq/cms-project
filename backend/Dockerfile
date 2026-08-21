@@ -11,9 +11,7 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Generate Prisma client
-RUN bunx prisma generate
-
 EXPOSE 3000
 
-CMD ["bun", "run", "start"]
+# Run prisma generate at startup (needs DATABASE_URL), then start app
+CMD ["sh", "-c", "bunx prisma generate && bun run start"]
