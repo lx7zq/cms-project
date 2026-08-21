@@ -11,7 +11,10 @@ RUN bun install --frozen-lockfile
 # Copy source code
 COPY . .
 
-# Generate Prisma client (DATABASE_URL available from Railway env)
+# Create uploads directory (required by staticPlugin)
+RUN mkdir -p uploads
+
+# Generate Prisma client
 RUN bunx prisma generate
 
 EXPOSE 3000
