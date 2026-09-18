@@ -15,6 +15,20 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
+      - name: Check required secrets
+        run: |
+          missing=0
+          for s in DATABASE_URL SERVER_HOST SERVER_USER SERVER_SSH_KEY; do
+            case "$s" in
+              DATABASE_URL) v="${{ secrets.DATABASE_URL }}" ;;
+              SERVER_HOST) v="${{ secrets.SERVER_HOST }}" ;;
+              SERVER_USER) v="${{ secrets.SERVER_USER }}" ;;
+              SERVER_SSH_KEY) v="${{ secrets.SERVER_SSH_KEY }}" ;;
+            esac
+            if [ -z "$v" ]; then echo "::error::Missing required secret: $s"; missing=1; fi
+          done
+          exit $missing
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
@@ -93,9 +107,24 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
+          # VPS เสิร์ฟจาก root (/) ไม่ใช่ project subpath เลยไม่ตั้ง GITHUB_PAGES
           VITE_APP_API_URL: ${{ secrets.API_BASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+
+      - name: Setup frontend .env on server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            cd ${{ vars.FRONTEND_PATH || '/var/www/cms-project/frontend' }}
+            cat > .env << 'ENVEOF'
+            VITE_APP_API_URL=${{ secrets.API_BASE_URL }}
+            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
+            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
+            ENVEOF
 
       - name: Deploy frontend via SSH
         uses: appleboy/ssh-action@v1

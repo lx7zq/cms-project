@@ -1,13 +1,11 @@
-import axios, { type AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios'
+import axios, { type AxiosError, type AxiosResponse, type InternalAxiosRequestConfig } from 'axios'
 
 import { getAuthToken } from './token'
 
-export function onRequest(config: AxiosRequestConfig): AxiosRequestConfig {
-  config.headers = config.headers ?? {}
-
+export function onRequest(config: InternalAxiosRequestConfig): InternalAxiosRequestConfig {
   const token = getAuthToken()
   if (token) {
-    config.headers.Authorization = `Bearer ${token}`
+    config.headers.setAuthorization(`Bearer ${token}`)
   }
 
   return config

@@ -27,7 +27,7 @@ class HttpRequest implements IHttpRequest {
     })
 
     this.axiosInstance.interceptors.request.use(
-      (config: any) => onRequest(config),
+      onRequest,
       onRequestError,
     )
 

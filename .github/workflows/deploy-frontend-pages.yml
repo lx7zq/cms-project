@@ -42,7 +42,10 @@ jobs:
         working-directory: frontend
         run: npm run build
         env:
+          GITHUB_PAGES: 'true'
           VITE_APP_API_URL: ${{ secrets.API_BASE_URL }}
+          VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
       - name: Setup Pages
         uses: actions/configure-pages@v4

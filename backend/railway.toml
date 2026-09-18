@@ -1,9 +1,6 @@
 [build]
 builder = "dockerfile"
 
-[build.args]
-DATABASE_URL = ""
-
 [deploy]
 startCommand = "bun run start"
 healthcheckPath = "/health"
