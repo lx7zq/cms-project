@@ -38,11 +38,6 @@ jobs:
         working-directory: frontend
         run: npm ci
 
-      # ตรวจว่ามองเห็น secret ไหม (พิมพ์แค่ SET/EMPTY ไม่พิมพ์ค่า)
-      - name: Check API URL secret
-        run: |
-          if [ -z "${{ secrets.API_BASE_URL }}" ]; then echo "API_BASE_URL is EMPTY"; else echo "API_BASE_URL is SET"; fi
-
       - name: Build
         working-directory: frontend
         run: npm run build
