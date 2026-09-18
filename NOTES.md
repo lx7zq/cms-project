@@ -111,24 +111,24 @@ cms-project/
 
 ## 📦 GitHub Actions Workflows
 
-1. **deploy.yml** — Deploy backend + frontend via SSH
+1. **deploy.yml** (`CI`) — ตรวจ code เฉยๆ ไม่มี deploy (ไม่มี VPS แล้ว)
+   - backend: `bun install` + `bun test` + `prisma generate`
+   - frontend: `npm ci` + `npm run build`
+   - ไม่ต้องใช้ secrets (มีก็ใช้ ไม่มีก็ fallback)
 2. **deploy-frontend-pages.yml** — Deploy frontend to GitHub Pages
+   - ต้องเปิด repo Settings → Pages → Source: **GitHub Actions** ก่อน
 
-### Required GitHub Secrets (ยังไม่ได้ตั้งค่า)
-- `DATABASE_URL` — PostgreSQL connection string
-- `SERVER_HOST` — Server hostname
-- `SERVER_USER` — SSH username
-- `SERVER_SSH_KEY` — SSH private key
-- `API_BASE_URL` — Backend API URL for frontend
+### Deploy จริง
+- Backend → Railway (service `bubbly-hope`, Root Directory = `backend`, Builder = Dockerfile)
+- Frontend → GitHub Pages (base `/cms-project/`, router ใช้ `BASE_URL`)
 
 ## ⚠️ TODO / ยังไม่ได้ทำ
 
 1. **✅ รัน Prisma migration + Seed เรียบร้อย** — Schema + Roles/Permissions/Admin ลง Supabase แล้ว
-2. **ตั้งค่า GitHub Secrets** — สำหรับ deployment
-3. **สร้าง server/backend hosting** — Railway หรือ VPS
-4. **ตั้งค่า Vercel** — สำหรับ frontend
-5. **Page Views API** — ยังไม่มี endpoint แยก (hardcoded เป็น 0)
-6. **Email service** — Forgot password ยัง mock อยู่ (return token ตรงๆ)
+2. **ตั้งค่า Railway Variables** — `JWT_SECRET`, `JWT_REFRESH_SECRET`, `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_*` (backend `.env` โดน gitignore เลยต้องใสใน Railway เอง ไม่งั้น container crash loop)
+3. **เปิด GitHub Pages** — repo Settings → Pages → Source: GitHub Actions
+4. **Page Views API** — ยังไม่มี endpoint แยก (hardcoded เป็น 0)
+5. **Email service** — Forgot password ยัง mock อยู่ (return token ตรงๆ)
 
 ## 🔐 Supabase Configuration
 

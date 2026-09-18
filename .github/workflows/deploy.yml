@@ -1,33 +1,23 @@
-name: Deploy to Production
+name: CI
 
+# ไม่มี VPS แล้ว — ไฟล์นี้ตรวจ code เฉยๆ (test + build)
+# deploy จริง: backend → Railway, frontend → GitHub Pages (deploy-frontend-pages.yml)
 on:
   push:
     branches: [main]
-
-env:
-  NODE_VERSION: '20'
+  pull_request:
+    branches: [main]
 
 jobs:
-  # ── Backend ──
-  deploy-backend:
+  # ── Backend: Bun + Prisma ──
+  backend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Check required secrets
-        run: |
-          missing=0
-          for s in DATABASE_URL SERVER_HOST SERVER_USER SERVER_SSH_KEY; do
-            case "$s" in
-              DATABASE_URL) v="${{ secrets.DATABASE_URL }}" ;;
-              SERVER_HOST) v="${{ secrets.SERVER_HOST }}" ;;
-              SERVER_USER) v="${{ secrets.SERVER_USER }}" ;;
-              SERVER_SSH_KEY) v="${{ secrets.SERVER_SSH_KEY }}" ;;
-            esac
-            if [ -z "$v" ]; then echo "::error::Missing required secret: $s"; missing=1; fi
-          done
-          exit $missing
 
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
@@ -35,59 +25,20 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        working-directory: backend
         run: bun install --frozen-lockfile
 
       - name: Run tests
-        working-directory: backend
         run: bun test
 
       - name: Generate Prisma Client
-        working-directory: backend
         run: bunx prisma generate
 
-      - name: Run migrations (CI)
-        working-directory: backend
-        run: bunx prisma migrate deploy
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-
-      - name: Setup backend .env on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd ${{ vars.BACKEND_PATH || '/var/www/cms-project/backend' }}
-            cat > .env << 'ENVEOF'
-            DATABASE_URL=${{ secrets.DATABASE_URL }}
-            JWT_SECRET=${{ secrets.JWT_SECRET }}
-            JWT_REFRESH_SECRET=${{ secrets.JWT_REFRESH_SECRET }}
-            SEED_SUPER_ADMIN_EMAIL=${{ secrets.SEED_SUPER_ADMIN_EMAIL }}
-            SEED_SUPER_ADMIN_PASSWORD=${{ secrets.SEED_SUPER_ADMIN_PASSWORD }}
-            SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            SUPABASE_PUBLISHABLE_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-            SUPABASE_SECRET_KEY=${{ secrets.SUPABASE_SECRET_KEY }}
-            SUPABASE_JWKS_URL=${{ secrets.SUPABASE_JWKS_URL }}
-            ENVEOF
-
-      - name: Deploy backend via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd ${{ vars.BACKEND_PATH || '/var/www/cms-project/backend' }}
-            git pull origin main
-            bun install --frozen-lockfile
-            bunx prisma generate
-            pm2 restart cms-backend || pm2 start "bun run start" --name cms-backend
-
-  # ── Frontend ──
-  deploy-frontend:
+  # ── Frontend: Vue + Vite ──
+  frontend:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -95,45 +46,17 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
-        working-directory: frontend
         run: npm ci
 
       - name: Build frontend
-        working-directory: frontend
         run: npm run build
         env:
-          # VPS เสิร์ฟจาก root (/) ไม่ใช่ project subpath เลยไม่ตั้ง GITHUB_PAGES
+          # มี secrets ก็ใช้ ไม่มีก็ build ด้วยค่า fallback (/api) — แค่ตรวจว่า code ไม่พัง
           VITE_APP_API_URL: ${{ secrets.API_BASE_URL }}
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-
-      - name: Setup frontend .env on server
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd ${{ vars.FRONTEND_PATH || '/var/www/cms-project/frontend' }}
-            cat > .env << 'ENVEOF'
-            VITE_APP_API_URL=${{ secrets.API_BASE_URL }}
-            VITE_SUPABASE_URL=${{ secrets.SUPABASE_URL }}
-            VITE_SUPABASE_ANON_KEY=${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
-            ENVEOF
-
-      - name: Deploy frontend via SSH
-        uses: appleboy/ssh-action@v1
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            cd ${{ vars.FRONTEND_PATH || '/var/www/cms-project/frontend' }}
-            git pull origin main
-            npm ci
-            npm run build
