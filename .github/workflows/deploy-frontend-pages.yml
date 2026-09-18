@@ -47,6 +47,12 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_PUBLISHABLE_KEY }}
 
+      # SPA ใช้ history mode (/login, /dashboard) แต่ Pages เป็น static host
+      # ก๊อป index.html เป็น 404.html ให้ Pages เสิร์ฟ app กลับมาแล้ว router จัดการต่อ
+      - name: Add SPA fallback
+        working-directory: frontend
+        run: cp dist/index.html dist/404.html
+
       - name: Setup Pages
         uses: actions/configure-pages@v4
 
